@@ -13,65 +13,40 @@ namespace SDES
         public int[] PKey4 { get; private set; } = { 0, 1, 2, 3 };
         private string[,] SWB1 = { { "00", "01", "10", "11" }, { "01", "10", "11", "00" }, { "10", "11", "00", "01" }, { "11", "00", "01", "10" } };
         private string[,] SWB2 = { { "11", "00", "01", "10" }, { "01", "10", "11", "00" }, { "00", "01", "10", "11" }, { "10", "11", "00", "01" } };
+        private string Key10 = "";
+        private string Key8_1 = "";
+        private string Key8_2 = "";
+        private string Key4 = "";
 
-        public SDES()
+        public SDES(string password)
         {
             //Generamos las permutaciones necesarias
             // Siempre son permutaciones nuevas en cada instancia.
             GeneratePermut();
+            BuildValues(password);
         }
 
-        public SDES(string pkey10, string pkey8, string pkey4)
+        public SDES(string password, string pkey10, string pkey8, string pkey4)
         {
             //El usuario puede generar sus propias permutaciones si se desea
             PKey10 = pkey10.Split(',').Select(Int32.Parse).ToArray();
             PKey8 = pkey8.Split(',').Select(Int32.Parse).ToArray();
             PKey4 = pkey4.Split(',').Select(Int32.Parse).ToArray();
+            BuildValues(password);
         }
 
-        public string Encrypt(string password, string data) // data es un byte representado en binario -> 11010110
+        public string Encrypt(string data) // data es un byte representado en binario -> 11010110
         {
-            //Obtenemos la clave de 10 digitos
-            var temp10 = string.Join("",Convert.ToString(password.GetHashCode(), 2).Take(10));
-            
-            //Permutamos la llave de 10 digitos
-            var key10 = "";
-            foreach (var index in PKey10)
-            {
-                key10 += temp10[index];
-            }
-
-            //Se divide la clave de 10 digitios
-            var key5 = Divide(key10);
-
-            //Se hace un LeftShift de 1
-            key5[0] = LeftShift(1, key5[0]);
-            key5[1] = LeftShift(1, key5[1]);
-
-            //Obtenemos la primera clave de 8 digitos
-            var key8_1 = "";
-            temp10 = string.Join("", key5);
-            foreach (var index in PKey8)
-            {
-                key8_1 += temp10[index];
-            }
-
-            //Se hace otro LeftShift pero de 2 sobre el anterior LeftShift
-            key5[0] = LeftShift(2, key5[0]);
-            key5[1] = LeftShift(2, key5[1]);
-
-            //Obtenemos la segunda clave de 8 digitos
-            var key8_2 = "";
-            temp10 = string.Join("", key5);
-            foreach (var index in PKey8)
-            {
-                key8_2 += temp10[index];
-            }
-
-            return Confuse(data, key8_1, key8_2);
+            //Generamos la confusión entre la data y las llaves
+            return Confuse(data, Key8_1, Key8_2, true);
         }
 
-        private string Confuse(string data, string key8_1, string key8_2)
+        public string Decrypt(string data)
+        {
+            return Confuse(data, Key8_1, Key8_2, false);
+        }
+
+        private string Confuse(string data, string key8_1, string key8_2, bool encrypt)
         {
             //Permutamos la data que es de 8 bits con PKey8 (la permutacion inicial)
             var temp = data;
@@ -86,11 +61,25 @@ namespace SDES
             //Se divide la data de 8 bits
             var key4 = Divide(data);
 
-            //La primera fase consiste en enviar ambas partes de key4 a MakeConfusion
-            //MakeConfusion retorna la segunda parte de la data ya encriptada, que se usara en la segunda fase
-            var RightData = MakeConfusion(key4[0], key4[1], key8_1, SWB1);
-            //Con la data derecha ya encriptada, entonces la segunda fase intercambia la data de la siguiente forma
-            var LeftData = MakeConfusion(key4[1], RightData, key8_2, SWB2);
+            //El mismo metodo funciona igual para ambas acciones (encriptar/desencriptar) solo se valida
+            var RightData  = "";
+            var LeftData = "";
+            if (encrypt)
+            {
+                //La primera fase consiste en enviar ambas partes de key4 a MakeConfusion
+                //MakeConfusion retorna la segunda parte de la data ya encriptada, que se usara en la segunda fase
+                RightData = ManageConfusion(key4[0], key4[1], key8_1, SWB1);
+                //Con la data derecha ya encriptada, entonces la segunda fase intercambia la data de la siguiente forma
+                LeftData = ManageConfusion(key4[1], RightData, key8_2, SWB2);
+            }
+            else
+            {
+                //La primera fase consiste en enviar ambas partes de key4 a MakeConfusion
+                //MakeConfusion retorna la segunda parte de la data ya encriptada, que se usara en la segunda fase
+                RightData = ManageConfusion(key4[0], key4[1], key8_2, SWB2);
+                //Con la data derecha ya encriptada, entonces la segunda fase intercambia la data de la siguiente forma
+                LeftData = ManageConfusion(key4[1], RightData, key8_1, SWB1);
+            }
 
             //Se genera la permutacion inversa
             data = "";
@@ -101,7 +90,7 @@ namespace SDES
             return data;
         }
 
-        private string MakeConfusion(string LeftData, string RightData, string key8, string[,] SWB)
+        private string ManageConfusion(string LeftData, string RightData, string key8, string[,] SWB)
         {
             //La permutacion cuatro ya se ha generado
             //Permutamos la data derecha de 4 bits
@@ -148,37 +137,31 @@ namespace SDES
             return RightData;
         }
 
-
-        public string Desencrypt(string password, string data, string pkey10, string pkey8, string pkey4)
+        private void BuildValues(string password)
         {
-            //Obtenemos la clave de 10 digitos
+            //Obtenemos la clave de 10 digitos y generamos un codigo unico
             var temp10 = string.Join("", Convert.ToString(password.GetHashCode(), 2).Take(10));
 
-            //Carga las permutaciones necesarias
-            PKey10 = pkey10.Split(',').Select(Int32.Parse).ToArray();
-            PKey8 = pkey8.Split(',').Select(Int32.Parse).ToArray();
-            PKey4 = pkey4.Split(',').Select(Int32.Parse).ToArray();
-
             //Permutamos la llave de 10 digitos
-            var key10 = "";
+            Key10 = "";
             foreach (var index in PKey10)
             {
-                key10 += temp10[index];
+                Key10 += temp10[index];
             }
 
             //Se divide la clave de 10 digitios
-            var key5 = Divide(key10);
+            var key5 = Divide(Key10);
 
             //Se hace un LeftShift de 1
             key5[0] = LeftShift(1, key5[0]);
             key5[1] = LeftShift(1, key5[1]);
 
             //Obtenemos la primera clave de 8 digitos
-            var key8_1 = "";
+            Key8_1 = "";
             temp10 = string.Join("", key5);
             foreach (var index in PKey8)
             {
-                key8_1 += temp10[index];
+                Key8_1 += temp10[index];
             }
 
             //Se hace otro LeftShift pero de 2 sobre el anterior LeftShift
@@ -186,47 +169,13 @@ namespace SDES
             key5[1] = LeftShift(2, key5[1]);
 
             //Obtenemos la segunda clave de 8 digitos
-            var key8_2 = "";
+            Key8_2 = "";
             temp10 = string.Join("", key5);
             foreach (var index in PKey8)
             {
-                key8_2 += temp10[index];
+                Key8_2 += temp10[index];
             }
-
-            return Deconfuse(data, key8_1, key8_2);
         }
-
-        private string Deconfuse(string data, string key8_1, string key8_2)
-        {
-            //Permutamos la data que es de 8 bits con PKey8 (la permutacion inicial)
-            var temp = data;
-            data = "";
-            foreach (var index in PKey8)
-            {
-                data += temp[index];
-            }
-
-            //La permutación cuatro ya se ha generado
-
-            //Se divide la data de 8 bits
-            var key4 = Divide(data);
-
-            //La primera fase consiste en enviar ambas partes de key4 a MakeConfusion
-            //MakeConfusion retorna la segunda parte de la data ya encriptada, que se usara en la segunda fase
-            var RightData = MakeConfusion(key4[0], key4[1], key8_2, SWB2);
-            //Con la data derecha ya encriptada, entonces la segunda fase intercambia la data de la siguiente forma
-            var LeftData = MakeConfusion(key4[1], RightData, key8_1, SWB1);
-
-            //Se genera la permutacion inversa
-            data = "";
-            for (int i = 0; i < 8; i++)
-            {
-                data += (LeftData + RightData)[Array.IndexOf(PKey8, i)];
-            }
-            return data;
-        }
-
-
 
         private string LeftShift(int moves, string data)
         {

@@ -45,13 +45,16 @@ namespace SDES
             }
         }
 
-        public static void WriteFile(string path, char data)
+        public static void WriteFile(string path, List<string> data)
         {
             using (var file = new FileStream(path, FileMode.Append))
             {
                 using (var writer = new BinaryWriter(file, ENCODE))
                 {
-                    writer.Write(data);
+                    foreach (var item in data)
+                    {
+                        writer.Write((char)Convert.ToInt32(item, 2));
+                    }
                 }
             }
         }
@@ -79,6 +82,11 @@ namespace SDES
                 }
             }
             return "";
+        }
+
+        public static bool FileExists(string path)
+        {
+            return File.Exists(path);
         }
     }
 }

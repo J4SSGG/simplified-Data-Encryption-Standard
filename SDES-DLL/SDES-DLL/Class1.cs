@@ -16,33 +16,37 @@ namespace SDES
         private string Key10 = "";
         private string Key8_1 = "";
         private string Key8_2 = "";
+        private const string separator = ":&&:";
 
-        public SDES(string password)
-        {
-            //Generamos las permutaciones necesarias
-            // Siempre son permutaciones nuevas en cada instancia.
-            GeneratePermut();
-            BuildValues(password);
-        }
-
-        public SDES(string password, string pkey10, string pkey8, string pkey4)
-        {
-            //El usuario puede generar sus propias permutaciones si se desea
-            PKey10 = pkey10.Split(',').Select(Int32.Parse).ToArray();
-            PKey8 = pkey8.Split(',').Select(Int32.Parse).ToArray();
-            PKey4 = pkey4.Split(',').Select(Int32.Parse).ToArray();
-            BuildValues(password);
-        }
-
-        public string Encrypt(string data) // data es un byte representado en binario -> 11010110
+        public async Task<string> Encrypt(string data, string password) // data es un byte representado en binario -> 11010110
         {
             //Generamos la confusión entre la data y las llaves
-            return Confuse(data, Key8_1, Key8_2, true);
+            GeneratePermut(null);
+            BuildValues(password);
+            var compress = string.Join(",", PKey10) + separator;
+            compress += string.Join(",", PKey8) + separator;
+            compress += string.Join(",", PKey4) + separator;
+            foreach (var item in data.ToCharArray())
+            {
+                compress += ((char)Convert.ToInt32(Confuse(Convert.ToString(item, 2).PadLeft(8, '0'), Key8_1, Key8_2, true), 2)).ToString();
+            }
+            return compress;
         }
 
-        public string Decrypt(string data)
+        public async Task<string> Decrypt(string data, string password)
         {
-            return Confuse(data, Key8_1, Key8_2, false);
+            var values = data.Split(new[] { separator }, StringSplitOptions.None );
+            PKey10 = values[0].Split(',').Select(Int32.Parse).ToArray();
+            PKey8 = values[1].Split(',').Select(Int32.Parse).ToArray();
+            PKey4 = values[2].Split(',').Select(Int32.Parse).ToArray();
+            BuildValues(password);
+
+            var uncompress = "";
+            foreach (var item in values[3])
+            {
+                uncompress += ((char)Convert.ToInt32(Confuse(Convert.ToString(item, 2).PadLeft(8, '0'), Key8_1, Key8_2, false), 2)).ToString();
+            }
+            return uncompress;
         }
 
         private string Confuse(string data, string key8_1, string key8_2, bool encrypt)
@@ -61,7 +65,7 @@ namespace SDES
             var key4 = Divide(data);
 
             //El mismo metodo funciona igual para ambas acciones (encriptar/desencriptar) solo se valida
-            var RightData  = "";
+            var RightData = "";
             var LeftData = "";
             if (encrypt)
             {
@@ -113,10 +117,10 @@ namespace SDES
             tempData = "";
             var row = Convert.ToInt32(RightData[0].ToString() + RightData[3].ToString(), 2);
             var col = Convert.ToInt32(RightData[1].ToString() + RightData[2].ToString(), 2);
-            tempData += SWB[row,col];
+            tempData += SWB[row, col];
             row = Convert.ToInt32(RightData[4].ToString() + RightData[7].ToString(), 2);
             col = Convert.ToInt32(RightData[5].ToString() + RightData[6].ToString(), 2);
-            tempData += SWB[row,col];
+            tempData += SWB[row, col];
 
             //Permutamos la data recuperada de la SB
             PRightData4 = "";
@@ -181,7 +185,7 @@ namespace SDES
             return data.Substring(moves) + string.Join("", data.Take(moves));
         }
 
-        private void GeneratePermut()
+        private void GeneratePermut(object nulll)
         {
             Random random = new Random();
             PKey10 = PKey10.OrderBy(x => random.Next()).ToArray();

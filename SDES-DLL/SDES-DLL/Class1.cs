@@ -6,26 +6,25 @@ using System.Threading.Tasks;
 
 namespace SDES
 {
-    public class SDES
+    public class Class1
     {
-        public int[] PKey10 { get; private set; } = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        public int[] PKey8 { get; private set; } = { 0, 1, 2, 3, 4, 5, 6, 7, };
-        public int[] PKey4 { get; private set; } = { 0, 1, 2, 3 };
+        public int[] PKey10 { get; private set; } = { 8, 5, 3, 4, 7, 6, 2, 9, 0, 1, };
+        public int[] PKey8 { get; private set; } = { 0, 7, 4, 6, 2, 5, 3, 1, };
+        public int[] PKey4 { get; private set; } = { 0,2,3,1 };
         private string[,] SWB1 = { { "00", "01", "10", "11" }, { "01", "10", "11", "00" }, { "10", "11", "00", "01" }, { "11", "00", "01", "10" } };
         private string[,] SWB2 = { { "11", "00", "01", "10" }, { "01", "10", "11", "00" }, { "00", "01", "10", "11" }, { "10", "11", "00", "01" } };
         private string Key10 = "";
         private string Key8_1 = "";
         private string Key8_2 = "";
-        private const string separator = ":&&:";
 
-        public async Task<string> Encrypt(string data, string password) // data es un byte representado en binario -> 11010110
+        public async Task<object> Encrypt(object inputs) // data es un byte representado en binario -> 11010110
         {
-            //Generamos la confusión entre la data y las llaves
-            GeneratePermut(null);
+            var parameter = (IDictionary<string, object>)inputs;
+            var data = parameter["data"].ToString();
+            var password = parameter["password"].ToString();
+
             BuildValues(password);
-            var compress = string.Join(",", PKey10) + separator;
-            compress += string.Join(",", PKey8) + separator;
-            compress += string.Join(",", PKey4) + separator;
+            var compress = "";
             foreach (var item in data.ToCharArray())
             {
                 compress += ((char)Convert.ToInt32(Confuse(Convert.ToString(item, 2).PadLeft(8, '0'), Key8_1, Key8_2, true), 2)).ToString();
@@ -33,16 +32,14 @@ namespace SDES
             return compress;
         }
 
-        public async Task<string> Decrypt(string data, string password)
+        public async Task<object> Decrypt(object inputs)
         {
-            var values = data.Split(new[] { separator }, StringSplitOptions.None );
-            PKey10 = values[0].Split(',').Select(Int32.Parse).ToArray();
-            PKey8 = values[1].Split(',').Select(Int32.Parse).ToArray();
-            PKey4 = values[2].Split(',').Select(Int32.Parse).ToArray();
-            BuildValues(password);
+            var parameter = (IDictionary<string, object>)inputs;
+            var data = parameter["data"].ToString();
+            var password = parameter["password"].ToString();
 
             var uncompress = "";
-            foreach (var item in values[3])
+            foreach (var item in data)
             {
                 uncompress += ((char)Convert.ToInt32(Confuse(Convert.ToString(item, 2).PadLeft(8, '0'), Key8_1, Key8_2, false), 2)).ToString();
             }

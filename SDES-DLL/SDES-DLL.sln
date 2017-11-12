@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27004.2008
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SDES-DLL", "SDES-DLL\SDES-DLL.csproj", "{352D4442-E201-402A-A496-CC8582ACD566}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SDES", "SDES-DLL\SDES.csproj", "{352D4442-E201-402A-A496-CC8582ACD566}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
